@@ -21,6 +21,7 @@ FC     = gfortran
 # -----------------------------------------------------------------
 ifeq ($(USE_MKL),1)
 LIBS = -lmkl_rt -fopenmp -lpthread -lm -ldl	
+FFLAGS += -cpp -DUSE_MKL
 # MKLROOT ?= /opt/intel/oneapi/mkl/latest
 # LIBS = -L$(MKLROOT)/lib/intel64 \
 #       -Wl,--start-group \
@@ -28,6 +29,7 @@ LIBS = -lmkl_rt -fopenmp -lpthread -lm -ldl
 #       -Wl,--end-group -fopenmp -lpthread -lm -ldl
 else
 LIBS   = -lopenblas -fopenmp -lgfortran 
+FFLAGS += -cpp
 endif
 
 # -----------------------------------------------------------------
@@ -107,7 +109,8 @@ $(BUILDDIR)/bands.o: \
 $(BUILDDIR)/ome_sp.o: \
 	$(BUILDDIR)/constants_math.o \
 	$(BUILDDIR)/parser_wannier90_tb.o \
-	$(BUILDDIR)/parser_optics_xatu_dim.o  
+	$(BUILDDIR)/parser_optics_xatu_dim.o  \
+	$(BUILDDIR)/lapack_threading.o
 
 $(BUILDDIR)/ome_ex.o: \
 	$(BUILDDIR)/constants_math.o \
@@ -146,6 +149,13 @@ $(BUILDDIR)/sigma_second_ex.o: \
 	$(BUILDDIR)/constants_math.o \
     $(BUILDDIR)/ome_ex.o \
 	$(BUILDDIR)/sigma_second_sp.o 
+
+$(BUILDDIR)/JDOS_sp.o: \
+      $(BUILDDIR)/constants_math.o \
+      $(BUILDDIR)/parser_input_file.o \
+      $(BUILDDIR)/parser_wannier90_tb.o \
+      $(BUILDDIR)/parser_optics_xatu_dim.o \
+      $(BUILDDIR)/lapack_threading.o
 # -----------------------------------------------------------------
 # Clean
 # -----------------------------------------------------------------
