@@ -1,6 +1,7 @@
 module ome_sp
    use constants_math
    use parser_input_file, only:iflag_orthonormal, inputfile_type
+   use lapack_threading, only:force_serial_lapack,restore_parallel_lapack
    use parser_wannier90_tb, &
       only:material_name,nR,nRvec,norb,R,shop,hhop,rhop_c
    use parser_kp, &
@@ -106,7 +107,7 @@ contains
  
       write(*,*) '   Calculating optical matrix elements (sp): sampling BZ...'
       ibz_sum=0 !counter for the number of k points in the BZ
- 
+      call force_serial_lapack()
       !$OMP PARALLEL DO PRIVATE(rkx,rky,rkz), &
       !$OMP PRIVATE(hkernel,skernel,sderkernel,hderkernel,akernel), &
       !$OMP PRIVATE(hk_ev,e,vme), &
@@ -158,7 +159,7 @@ contains
  
       end do
       !$OMP END PARALLEL DO
- 
+      call restore_parallel_lapack()
       !write matrix elements into file
       write(*,*) '   Writing optical matrix elements (sp) into file'
       if (iflag_norder.eq.1) then
