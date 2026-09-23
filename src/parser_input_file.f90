@@ -21,6 +21,7 @@ module parser_input_file
   public :: read_line_numbers_int !subroutine
   public :: iflag_orthonormal_text
   public :: iflag_orthonormal
+  public :: inputfile_type
 
   character(len=1000) :: material_name_in
   character(len=100) :: filename_input
@@ -31,6 +32,7 @@ module parser_input_file
   character(len=1000) :: xatu_eigval_filepath_in
   character(len=1000) :: xatu_states_filepath_in
   character(len=100) :: response_text
+  character(len=100) :: inputfile_type
   character(len=100) :: iflag_orthonormal_text
 
   logical :: iflag_xatu
@@ -68,7 +70,7 @@ module parser_input_file
     subroutine get_input_file()
       implicit none
       integer, allocatable :: narray(:) 
-      integer :: num_values, ios
+      integer :: num_values, ios, name_len
       character(len=1000) :: line
       character(len=100) :: param_name
       logical :: ndim_found, material_found, xatu_found, bandlist_found
@@ -117,6 +119,18 @@ module parser_input_file
           else if (index(param_name, 'Wannier90_filename') > 0) then
             read(10,'(A)') material_name_in
             material_found = .true.
+
+            material_name_in = adjustl(material_name_in)
+            name_len = len_trim(material_name_in)
+
+            if (to_lower(material_name_in(name_len-6:name_len)) == '_tb.dat') then
+              inputfile_type = 'Wannier'
+            else if (to_lower(material_name_in(name_len-6:name_len)) == '_kp.dat') then
+              inputfile_type = 'kp'
+            else
+              write(*,*) 'Input file name must end in either "_tb.dat" (Wannier Hamiltonian) or "_kp.dat" (kp Hamiltonian)'
+              stop
+            end if 
             
           else if (index(param_name, 'Xatu_interface') > 0) then
             read(10,*) iflag_xatu_text

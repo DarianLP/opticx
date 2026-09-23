@@ -3,9 +3,6 @@ module constants_math
   real(8), parameter :: pi=3.14159265358979323846d0
   real(8), parameter :: dk=1.0d-6
   
-  !real(8) :: ax,ay,az,bx,by,bz,cx,cy,cz
-  !private :: ax,ay,az,bx,by,bz,cx,cy,cz
-  !public :: ax,ay,az,bx,by,bz,cx,cy,cz
   contains
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   subroutine percentage_index(kacum,ktotal,kmoment)
@@ -108,6 +105,89 @@ module constants_math
       stop
     end if
   end
+
+  
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   NAME:         Bloch_Hamiltonian
+!   INPUTS:       rkx,rky: Reciprocal space vector in fractional coordinates (with respect to the lattice vectors of the _tb.dat file)
+!                 h_matrix: Coefficient matrices of the kp Hamiltonian polynomial expansion, read from Materialname_kp.dat (dimension n_tuples x norb x norb)
+!                 norb: The dimension of the Hamiltonian matrix
+!                 power_x,power_y: Powers of rkx and rky for each term of the kp Hamiltonian polynomial expansion
+!   OUTPUTS:      hkernel: Bloch Hamiltonian matrix in reciprocal space
+!                 skernel: Overlap matrix in reciprocal space
+!                 akernel: Dipole matrix in reciprocal space
+!                 hderkernel: Derivative of the Hamiltonian matrix
+!                 sderkernel: Derivative of the overlap matrix
+!   DESCRIPTION:  This subroutine is meant to evaluate kp Hamiltonians in reciprocal space. 
+!                 It reads the kp Hamiltonian from the file Materialname_kp.dat
+!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  subroutine Bloch_Hamiltonian(rkx,rky,h_matrix,norb,power_x,power_y,hkernel,skernel,akernel,hderkernel,sderkernel)
+    implicit none
+
+    integer norb
+    integer power_x(:),power_y(:)
+    integer ii, i, n_tuples
+    
+
+    dimension skernel(norb,norb)
+    dimension hkernel(norb,norb)
+    dimension sderkernel(3,norb,norb)
+    dimension hderkernel(3,norb,norb)
+    dimension akernel(3,norb,norb)
+
+    complex*16 skernel,sderkernel,hkernel,hderkernel,akernel
+    complex*16 h_matrix(:,:,:)
+    complex*16 :: Identity(norb,norb)
+
+
+    real(8) rkx,rky,rkz
+
+    hkernel=0.0d0
+    hderkernel=0.0d0
+    skernel=0.0d0
+    sderkernel=0.0d0
+    akernel=0.0d0
+
+    Identity = (0.0d0, 0.0d0)
+    do ii = 1, norb
+      Identity(ii,ii) = (1.0d0, 0.0d0)
+    end do
+    
+    n_tuples = size(power_x)
+
+    hkernel = (0.0d0,0.0d0)
+
+    do i = 1,n_tuples
+      hkernel(:,:) = hkernel(:,:) + h_matrix(i,:,:)*rkx**power_x(i)*rky**power_y(i)
+    end do
+
+    hkernel(:,:) = hkernel(:,:) + Identity*(rkx**2 + rky**2)/2
+
+    hderkernel = (0.0d0,0.0d0)
+    do i = 1, n_tuples
+      if (power_x(i) > 0) then
+        hderkernel(1,:,:) = hderkernel(1,:,:) + power_x(i)*h_matrix(i,:,:)*rkx**(power_x(i)-1)*rky**power_y(i)
+      end if
+      if (power_y(i) > 0) then
+        hderkernel(2,:,:) = hderkernel(2,:,:) + power_y(i)*h_matrix(i,:,:)*rkx**power_x(i)*rky**(power_y(i)-1)
+      end if
+    end do
+    hderkernel(1,:,:) = hderkernel(1,:,:) + Identity*rkx
+    hderkernel(2,:,:) = hderkernel(2,:,:) + Identity*rky
+    hderkernel(3,:,:) = 0.0d0
+    akernel = 0.0d0
+    skernel(:,:)  = Identity(:,:)
+    sderkernel = 0.0d0
+    if (rkx**2 + rky**2 > 0.0005) then
+      hkernel = (0.0d0,0.0d0)
+      do ii = 1, norb
+        hkernel(ii,ii) = dcmplx(dble(ii), 0.0d0)
+      end do
+      hderkernel = 0.0d0
+    end if
+
+  end subroutine 
 
 end module constants_math
 

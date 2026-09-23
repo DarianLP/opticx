@@ -90,6 +90,10 @@ $(BINDIR)/opticx.o: $(SRC_MAIN) | $(BINDIR) $(BUILDDIR)
 $(BUILDDIR)/parser_wannier90_tb.o: \
 	$(BUILDDIR)/parser_input_file.o 
 
+$(BUILDDIR)/parser_kp.o: \
+    $(BUILDDIR)/parser_input_file.o \
+    $(BUILDDIR)/parser_wannier90_tb.o
+
 $(BUILDDIR)/parser_optics_xatu_dim.o: \
 	$(BUILDDIR)/constants_math.o \
 	$(BUILDDIR)/parser_wannier90_tb.o \
@@ -107,7 +111,8 @@ $(BUILDDIR)/bands.o: \
 $(BUILDDIR)/ome_sp.o: \
 	$(BUILDDIR)/constants_math.o \
 	$(BUILDDIR)/parser_wannier90_tb.o \
-	$(BUILDDIR)/parser_optics_xatu_dim.o  
+	$(BUILDDIR)/parser_optics_xatu_dim.o  \
+	$(BUILDDIR)/parser_kp.o
 
 $(BUILDDIR)/ome_ex.o: \
 	$(BUILDDIR)/constants_math.o \

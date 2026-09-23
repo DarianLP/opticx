@@ -1,8 +1,10 @@
 module ome_sp
    use constants_math
-   use parser_input_file, only:iflag_orthonormal
+   use parser_input_file, only:iflag_orthonormal, inputfile_type
    use parser_wannier90_tb, &
       only:material_name,nR,nRvec,norb,R,shop,hhop,rhop_c
+   use parser_kp, &
+      only:h_matrix,power_x,power_y
    use parser_optics_xatu_dim, &
       only:npointstotal,rkxvector,rkyvector,rkzvector, &
       nband_ex,nband_index,nv_ex,nc_ex
@@ -20,6 +22,7 @@ module ome_sp
    complex*16 vme_ex_band
    complex*16 gen_der_ex_band
    complex*16 berry_eigen_ex_band
+
 contains
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    subroutine get_ome_sp(iflag_norder)
@@ -610,78 +613,84 @@ contains
  
       ! === HOIST dimensionality flags: computed ONCE, never inside any loop ===
       logical :: active_x, active_y, active_z
-      active_x = (NORM2(real(nRvec(:,1))) /= 0.0d0)
-      active_y = (NORM2(real(nRvec(:,2))) /= 0.0d0)
-      active_z = (NORM2(real(nRvec(:,3))) /= 0.0d0)
-      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- 
-      hkernel=0.0d0
-      hderkernel=0.0d0
-      skernel=0.0d0
-      sderkernel=0.0d0
-      akernel=0.0d0
-      hderhop=0.0d0
-      sderhop=0.0d0
- 
-      do ialpha=1,norb
-         do ialphap=1,ialpha
-            do iRp=1,nR
-               ! Compute lattice vector components using precomputed flags (no NORM2 in loop)
-               if (active_x) then
-                  Rx = dble(nRvec(iRp,1))*R(1,1) + dble(nRvec(iRp,2))*R(2,1) + dble(nRvec(iRp,3))*R(3,1)
-               else
-                  Rx = 0.0d0
-               end if
-               if (active_y) then
-                  Ry = dble(nRvec(iRp,1))*R(1,2) + dble(nRvec(iRp,2))*R(2,2) + dble(nRvec(iRp,3))*R(3,2)
-               else
-                  Ry = 0.0d0
-               end if
-               if (active_z) then
-                  Rz = dble(nRvec(iRp,1))*R(1,3) + dble(nRvec(iRp,2))*R(2,3) + dble(nRvec(iRp,3))*R(3,3)
-               else
-                  Rz = 0.0d0
-               end if
- 
-               phase=complex(0.0d0,rkx*Rx+rky*Ry+rkz*Rz)
-               factor=exp(phase)
- 
-               hkernel(ialpha,ialphap)=hkernel(ialpha,ialphap)+ &
-                  factor*hhop(iRp,ialpha,ialphap)
+
+      if (inputfile_type == 'Wannier') then
+
+         active_x = (NORM2(real(nRvec(:,1))) /= 0.0d0)
+         active_y = (NORM2(real(nRvec(:,2))) /= 0.0d0)
+         active_z = (NORM2(real(nRvec(:,3))) /= 0.0d0)
+         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   
+         hkernel=0.0d0
+         hderkernel=0.0d0
+         skernel=0.0d0
+         sderkernel=0.0d0
+         akernel=0.0d0
+         hderhop=0.0d0
+         sderhop=0.0d0
+   
+         do ialpha=1,norb
+            do ialphap=1,ialpha
+               do iRp=1,nR
+                  ! Compute lattice vector components using precomputed flags (no NORM2 in loop)
+                  if (active_x) then
+                     Rx = dble(nRvec(iRp,1))*R(1,1) + dble(nRvec(iRp,2))*R(2,1) + dble(nRvec(iRp,3))*R(3,1)
+                  else
+                     Rx = 0.0d0
+                  end if
+                  if (active_y) then
+                     Ry = dble(nRvec(iRp,1))*R(1,2) + dble(nRvec(iRp,2))*R(2,2) + dble(nRvec(iRp,3))*R(3,2)
+                  else
+                     Ry = 0.0d0
+                  end if
+                  if (active_z) then
+                     Rz = dble(nRvec(iRp,1))*R(1,3) + dble(nRvec(iRp,2))*R(2,3) + dble(nRvec(iRp,3))*R(3,3)
+                  else
+                     Rz = 0.0d0
+                  end if
+   
+                  phase=complex(0.0d0,rkx*Rx+rky*Ry+rkz*Rz)
+                  factor=exp(phase)
+   
+                  hkernel(ialpha,ialphap)=hkernel(ialpha,ialphap)+ &
+                     factor*hhop(iRp,ialpha,ialphap)
+                     
+                  skernel(ialpha,ialphap)=skernel(ialpha,ialphap)+ &
+                     factor*shop(iRp,ialpha,ialphap)
+   
+                  hderhop(1,iRp,ialpha,ialphap)=complex(0.0d0,Rx)*hhop(iRp,ialpha,ialphap)
+                  hderhop(2,iRp,ialpha,ialphap)=complex(0.0d0,Ry)*hhop(iRp,ialpha,ialphap)
+                  hderhop(3,iRp,ialpha,ialphap)=complex(0.0d0,Rz)*hhop(iRp,ialpha,ialphap)
                   
-               skernel(ialpha,ialphap)=skernel(ialpha,ialphap)+ &
-                  factor*shop(iRp,ialpha,ialphap)
- 
-               hderhop(1,iRp,ialpha,ialphap)=complex(0.0d0,Rx)*hhop(iRp,ialpha,ialphap)
-               hderhop(2,iRp,ialpha,ialphap)=complex(0.0d0,Ry)*hhop(iRp,ialpha,ialphap)
-               hderhop(3,iRp,ialpha,ialphap)=complex(0.0d0,Rz)*hhop(iRp,ialpha,ialphap)
-               
-               sderhop(1,iRp,ialpha,ialphap)=complex(0.0d0,Rx)*shop(iRp,ialpha,ialphap)
-               sderhop(2,iRp,ialpha,ialphap)=complex(0.0d0,Ry)*shop(iRp,ialpha,ialphap)
-               sderhop(3,iRp,ialpha,ialphap)=complex(0.0d0,Rz)*shop(iRp,ialpha,ialphap)
-               do nj=1,3
-                  sderkernel(nj,ialpha,ialphap)=sderkernel(nj,ialpha,ialphap)+ &
-                     factor*sderhop(nj,iRp,ialpha,ialphap)
-                  hderkernel(nj,ialpha,ialphap)=hderkernel(nj,ialpha,ialphap)+ &
-                     factor*hderhop(nj,iRp,ialpha,ialphap)
-                  akernel(nj,ialpha,ialphap)=akernel(nj,ialpha,ialphap)+ &
-                     factor*(rhop_c(nj,iRp,ialpha,ialphap)+ &
-                     complex(0.0d0,1.0d0)*sderhop(nj,iRp,ialpha,ialphap))
+                  sderhop(1,iRp,ialpha,ialphap)=complex(0.0d0,Rx)*shop(iRp,ialpha,ialphap)
+                  sderhop(2,iRp,ialpha,ialphap)=complex(0.0d0,Ry)*shop(iRp,ialpha,ialphap)
+                  sderhop(3,iRp,ialpha,ialphap)=complex(0.0d0,Rz)*shop(iRp,ialpha,ialphap)
+                  do nj=1,3
+                     sderkernel(nj,ialpha,ialphap)=sderkernel(nj,ialpha,ialphap)+ &
+                        factor*sderhop(nj,iRp,ialpha,ialphap)
+                     hderkernel(nj,ialpha,ialphap)=hderkernel(nj,ialpha,ialphap)+ &
+                        factor*hderhop(nj,iRp,ialpha,ialphap)
+                     akernel(nj,ialpha,ialphap)=akernel(nj,ialpha,ialphap)+ &
+                        factor*(rhop_c(nj,iRp,ialpha,ialphap)+ &
+                        complex(0.0d0,1.0d0)*sderhop(nj,iRp,ialpha,ialphap))
+                  end do
                end do
+               !complex conjugate
+               hkernel(ialphap,ialpha)=conjg(hkernel(ialpha,ialphap))
+               skernel(ialphap,ialpha)=conjg(skernel(ialpha,ialphap))
+               do nj=1,3
+                  sderkernel(nj,ialphap,ialpha)=conjg(sderkernel(nj,ialpha,ialphap))
+                  hderkernel(nj,ialphap,ialpha)=conjg(hderkernel(nj,ialpha,ialphap))
+                  
+                  akernel(nj,ialphap,ialpha)=conjg(akernel(nj,ialpha,ialphap))+ &
+                     complex(0.0d0,1.0d0)*conjg(sderkernel(nj,ialpha,ialphap))
+               end do
+   
             end do
-            !complex conjugate
-            hkernel(ialphap,ialpha)=conjg(hkernel(ialpha,ialphap))
-            skernel(ialphap,ialpha)=conjg(skernel(ialpha,ialphap))
-            do nj=1,3
-               sderkernel(nj,ialphap,ialpha)=conjg(sderkernel(nj,ialpha,ialphap))
-               hderkernel(nj,ialphap,ialpha)=conjg(hderkernel(nj,ialpha,ialphap))
-               
-               akernel(nj,ialphap,ialpha)=conjg(akernel(nj,ialpha,ialphap))+ &
-                  complex(0.0d0,1.0d0)*conjg(sderkernel(nj,ialpha,ialphap))
-            end do
- 
          end do
-      end do
+      else 
+         call Bloch_Hamiltonian(rkx,rky,h_matrix,norb,power_x,power_y,hkernel,skernel,akernel,hderkernel,sderkernel)
+      end if 
    end subroutine get_vme_kernels_ome
  
  
